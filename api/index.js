@@ -6,6 +6,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const bcrypt = require('bcrypt');
+const ws = require('ws');
 
 dotenv.config();
 
@@ -81,6 +82,32 @@ app.post('/login', async (req,res) => {
 }});
 
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
     console.log(`App is running on ${port}`);
+});
+
+const wss = new ws.WebSocketServer({server});
+wss.on('connection',(connection, req) =>{
+  const cookies = req.headers.cookie;
+  if(cookies){
+   const tokenCookieString = cookies.split(';').find(str => str.startsWith('token='));
+    if(tokenCookieString){
+      const token = tokenCookieString.split('=')[1];
+      if(token){
+        jwt.verify(token, jwtSecret, {}, (err, user) => {
+          if(err) {
+            console.log(err);
+          }
+         const {userId, username} = user;
+         connection.userId = userId;
+         connection.username = username;
+        });
+      }
+  }
+}
+[...wss.clients].forEach(client => {
+  client.send(JSON.stringify({
+   online: [...wss.clients].map(c=> ({userId:c.userId, username:c.username}))}
+  ));
+});
 });
