@@ -30,8 +30,34 @@ app.use(cors({
   origin: process.env.CLIENT_URL,
 }));
 
+async function getUserData(req){
+  return new Promise((resolve, reject) => {
+    const {token} = req.cookies;
+  if(token){
+    jwt.verify(token, jwtSecret, {}, (err, user) => {
+      if(err) {
+        return res.status(401).json('not authorized');
+      }
+    }); 
+  } else{
+    reject('not authorized');
+  }
+  });
+}
+
 app.get('/', (req, res) => {
     res.json('test ok');
+});
+
+app.get('/messages/:userId', async (req,res) => {
+  const userId = req.params.userId;
+  const userData = await getUserData(req);
+  const ourUserId = userData.userId;
+  const messages=  await Message.find({
+    sender : {$in: [userId, ourUserId]},
+    recipient: {$in: [userId, ourUserId]}
+  }).sort({createdAt:-1});
+  res.json(messages);
 });
 
 app.get('/profile', (req,res) => {
